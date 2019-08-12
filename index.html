@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+ 	<meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="style/style.css">
+    <script src="script/field.js"></script>
+    <script src="script/interp.js"></script>
+   	<title>Field Designer</title>
+</head>
+
+<body onResize="resize_all()">
+	<div id="directions-wrapper">
+        <form onsubmit="return false">
+            <fieldset>
+                <div>
+                    <legend>Please enter the dimensions of your athletic field:</legend>
+            
+                    <!-- text field for field length -->
+                    <label for="text-length">L:</label>
+                    <input type="text" id="text-length" name="length" value=""/>
+                    
+                    <!-- text field for field width -->
+                    <label for="text-width">W:</label>
+                    <input type="text" id="text-width" name="width" value=""/>
+                    
+                    <!-- select units -->
+                    <label for="select-field-units" class="indented">Units:</label>
+                    <select id="select-field-units">
+                        <option value="unit-foot">feet (ft)</option>
+                        <option value="unit-yard">yards (yd)</option>
+                        <option value="unit-mile">miles (mi)</option>
+                        <option value="unit-meter">meters (m)</option>
+                        <option value="unit-kilometer">kilometers (km)</option>
+                    </select>
+                    
+                    <!-- select surface -->
+                    <label for="select-field-surface" class="indented">Surface:</label>
+                    <select id="select-field-surface">
+                        <option value="surface-clay">clay</option>
+                        <option value="surface-dirt">dirt</option>
+                        <option value="surface-grass">grass</option>
+                        <option value="surface-rubber">rubber</option>
+                        <option value="surface-composite">composite</option>
+                    </select>
+                    <button id="submit-button" onClick="form_submit()">Proceed</button>
+                </div>
+                <div>
+                    <span id="form-warning"></span>
+                </div>
+            </fieldset>
+        </form>
+    </div>    
+   
+    <div id="field-wrapper" class="hidden">
+        <div id="north-box" style="grid-area: header;">
+            <div id="top-menu-main">
+            	<div class="dropdown-menu">
+                    <button id="menu-file" class="dropdown-menu-button" onClick="menu_file_dropdown()">File</button>
+                    <div class="dropdown-submenu hidden" id="submenu-file">
+                        <button onClick="submenu_file_new()"><img src="img/icon/menu-file-new.svg"><span>New...</span></button>
+                        <button onClick="submenu_file_open()"><img src="img/icon/menu-file-open.svg"><span>Open...</span></button>
+                        <button onClick="submenu_file_close()"><img src="img/icon/menu-file-close.svg"><span>Close...</span></button>
+                        <div class="menu-divider"></div>
+                        <button onClick="submenu_file_save()"><img src="img/icon/menu-file-save.svg"><span>Save</span></button>
+                        <button onClick="submenu_file_save_as()"><img src="img/icon/menu-file-save-as.svg"><span>Save As...</span></button>
+                        <button onClick="submenu_file_import()"><img src="img/icon/menu-file-import.svg"><span>Import...</span></button>
+                        <button onClick="submenu_file_export()"><img src="img/icon/menu-file-export.svg"><span>Export...</span></button>
+                        <button onClick="submenu_file_exit()"><img src="img/icon/menu-file-exit.svg"><span>Exit</span></button>
+                    </div>
+                </div>
+
+                <div class="dropdown-menu">
+                    <button id="menu-edit" class="dropdown-menu-button" onClick="menu_edit_dropdown()">Edit</button>
+                    <div class="dropdown-submenu hidden" id="submenu-edit">
+                        <button onClick="submenu_edit_undo()"><img src="img/icon/menu-edit-undo.svg"><span>Undo</span></button>
+                        <button onClick="submenu_edit_redo()"><img src="img/icon/menu-edit-redo.svg"><span>Redo</span></button>
+                    </div>
+                </div>
+                
+				<div class="dropdown-menu">
+                    <button id="menu-view" class="dropdown-menu-button" onClick="menu_view_dropdown()">View</button>
+                    <div class="dropdown-submenu hidden" id="submenu-view">
+                        <button onClick="submenu_options_grid()"><img src="img/icon/menu-view-grid.svg"><span>Grid...</span></button>
+                        <button onClick="submenu_options_ruler()"><img src="img/icon/menu-view-ruler.svg"><span>Ruler...</span></button>
+                    </div>
+                </div>
+                
+                <div class="dropdown-menu">
+                    <button id="menu-options" class="dropdown-menu-button" onClick="menu_options_dropdown()">Options</button>
+                    <div class="dropdown-submenu hidden" id="submenu-options">
+                        <button onClick="submenu_options_foo()"> </button>
+                    </div>
+                </div>
+                
+                <div class="dropdown-menu">
+                    <button id="menu-help" class="dropdown-menu-button" onClick="menu_help_dropdown()">Help</button>
+                    <div class="dropdown-submenu hidden" id="submenu-help">
+                        <button onClick="submenu_help_display()"><img src="img/icon/menu-help-cmd.svg"><span>Help</span></button>
+                        <button onClick="submenu_help_commands()"><img src="img/icon/menu-help-cmd.svg"><span>Commands</span></button>
+                        <button onClick="submenu_help_about()"><img src="img/icon/menu-help-about.svg"><span>About</span></button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Commented so as to manually control spacing, as carriage return creates default button spacing (which we do not want!)-->
+            <div id="top-icon-menu">	
+				<button id="draw-line" class="icon-menu-button" onClick="menu_draw_line()"><img src="img/icon/line.svg" alt="<u>D</u>raw Line"></button><!--
+			 --><button id="draw-arc" class="icon-menu-button" onClick="menu_draw_arc()"><img src="img/icon/arc.svg" alt=""></button><!--
+			 --><button id="draw-rect" class="icon-menu-button" onClick="menu_draw_rect()"><img src="img/icon/rect.svg" alt=""></button><!--
+			 --><button id="draw-circle" class="icon-menu-button" onClick="menu_draw_circle()"><img src="img/icon/circle.svg" alt=""></button><!--
+			 --><button id="draw-poly" class="icon-menu-button" onClick="menu_draw_poly_line()"><img src="img/icon/polyline.svg" alt=""></button><!--
+             --><button id="draw-thickness" class="icon-menu-button" onClick="menu_pick_thickness()"><img src="img/icon/polyline.svg" alt=""></button><!--
+			 --><button id="draw-color" class="icon-menu-button" onClick="menu_pick_color()"><img src="img/icon/color.svg" alt=""></button>
+            </div>
+        </div>
+        
+        <div id="west-box" style="grid-area: left;">
+            <div id="left-icon-menu">
+                <button id="derp1" class="icon-menu-button" onClick="unsupported_operation()"><img src="img/icon/rect.svg" alt=""></button>
+                <button id="derp2" class="icon-menu-button" onClick="unsupported_operation()"><img src="img/icon/rect.svg" alt=""></button>
+                <button id="derp3" class="icon-menu-button" onClick="unsupported_operation()"><img src="img/icon/rect.svg" alt=""></button>
+                <button id="derp4" class="icon-menu-button" onClick="unsupported_operation()"><img src="img/icon/rect.svg" alt=""></button>
+                <button id="derp5" class="icon-menu-button" onClick="unsupported_operation()"><img src="img/icon/rect.svg" alt=""></button>
+                <button id="derp6" class="icon-menu-button" onClick="unsupported_operation()"><img src="img/icon/rect.svg" alt=""></button>
+            </div>
+        </div>
+        
+        <div id="center-box" style="grid-area: middle;">
+			<canvas id="big-canvas"></canvas>
+            <canvas id="little-canvas" onMouseMove="canvas_mouseMove(event)" onMouseOut="canvas_mouseOut()"></canvas>
+        </div>
+        
+        <div id="east-box" style="grid-area: right;">
+        </div>
+                
+        <div id="south-box" style="grid-area: bottom;">
+            <span id="status-left-box">
+                <button id="toggle-console" title="Enable developer console" onClick="toggleConsole()">~</button>
+                <input type="text" id="text-console" value="" class="hidden">
+            </span>
+            
+            <span id="status-center-box" class="hidden"> 
+                <label for="text-input1"></label>
+                <input type="text" id="text-input1" value="">
+                <label for="text-input2"></label>
+                <input type="text" id="text-input2" value="">
+                <label for="text-input3"></label>
+                <input type="text" id="text-input3" value="">
+                <label for="text-input4"></label>
+                <input type="text" id="text-input4" value="">
+            </span>
+            
+            <span id="status-right-box">
+                <span id="display-coords"></span>
+                <select id="select-canvas-units" onChange="canvas_changeUnits()"></select>                
+                <select id="select-canvas-scale-type" onChange="canvas_changeScaleType()">
+	                <option value="scale-type-grid">grid</option>
+                    <option value="scale-type-ruler">ruler</option>
+                </select>
+                <select id="select-canvas-scale" onChange="canvas_changeScale()"></select>
+            </span>
+        </div>
+    </div>
+</body>
+
+</html>

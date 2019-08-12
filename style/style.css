@@ -1,0 +1,182 @@
+@charset "utf-8"
+
+
+html, body {
+	height: 100%;
+}
+	
+/* initial directions */
+#directions-wrapper, #field-wrapper {
+	height: 99%;
+	width: 99%;
+}
+
+#directions-wrapper .indented {
+	margin-left: 0.5%;	
+}
+
+#form-warning, #toggle-console {
+	font-weight: bold;
+}
+
+/* Field design control */
+#field-wrapper {
+	position: absolute;
+	grid-template-columns: max-content max-content 1fr;
+	grid-template-rows: max-content 1fr max-content ;
+    grid-template-areas: 
+        "header header header"
+        "left   middle right"
+        "bottom bottom right";
+	grid-column-gap: 0.33em;
+}
+
+#field-wrapper div {
+	margin-left: 0px;
+	padding-left: 0px;
+	margin-top: 0px;
+	padding-top: 0px;
+}
+
+#top-icon-menu button:not(:last-child) {
+	margin-right: 0.33em;
+}
+
+#north-box, #top-menu-main, #left-icon-menu button:not(:last-child) {
+	margin-bottom: 0.33em;
+}
+
+/* Menus */
+/* Main menu */
+#top-menu-main {
+	overflow: hidden;
+}
+
+.dropdown-menu {
+  	float: left;
+ 	overflow: hidden;
+}
+
+.dropdown-menu-button {
+	font-size: medium;
+	border: none;
+	float: left;
+ 	outline: none;
+	overflow: hidden;
+	text-align: center;
+	text-decoration: none;
+}
+
+.dropdown-menu-button:hover {
+  	background-color: #a3a3a3;
+}
+
+.dropdown-menu-button:focus {
+	/*TO DO*/
+}
+
+.dropdown-submenu {
+	display: block;
+  	min-width: 160px;
+	position: absolute;
+  	z-index: 1;
+}
+
+.dropdown-submenu button {
+	border: none;
+  	color: black;
+	cursor: pointer;
+  	display: block;
+  	float: none;
+  	padding: 5% 10%;
+  	text-align: left;
+  	text-decoration: none;
+	width: 100%;
+}
+
+.dropdown-submenu button * {
+	display: inline-table;
+	height: auto;
+	vertical-align: middle;
+}
+
+.dropdown-submenu button img {
+	width: 1.25em;
+}
+
+.dropdown-submenu button span {
+	padding-left: 1.0em;
+}
+
+.dropdown-submenu button:hover {
+  	background-color: #91c9f7;
+}
+
+/* Icon menus */
+.icon-menu-button {
+	padding: 1px;
+}
+
+.icon-menu-button img {
+	display: block;
+	height: auto;
+	width: 100%;
+}
+
+#left-icon-menu button {
+	display: block;
+}
+
+/* Status bar */
+#south-box span {
+	vertical-align: central;	
+}
+
+#text-console, #south-box input, #display-coords, #select-canvas-scale {
+	font-family: monospace;	
+}
+
+#text-console {
+	width: 33%;
+}
+
+#status-right-box {
+	float: right;
+}
+
+#display-coords {
+	width: 16ch;
+	font-size: 1.1em;
+	text-align: right;
+}
+
+#select-canvas-units {
+	border-color: transparent;
+	font-weight: bold;
+}
+
+/* Canvas */
+#center-box {
+	position: relative;	
+}
+
+#big-canvas {
+	margin: 0;
+	border: 0.175em solid black;	
+	border-bottom-left-radius: 2em;
+	z-index: 1;
+}
+
+#little-canvas {
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 2;
+}
+
+/*	Hidden elements */
+.hidden {
+	display: none;
+}
