@@ -14,51 +14,77 @@ There are three types of symbols:
 */
 
 /********************************** BASE CLASSES  ***************************************/
-/*	class Node:		base class of interior nodes for n-ary abstract syntax tree (AST).	*/
-function Node(key, description, child_nodes) {	
+/*	@class Node:
+ *		Base class of interior nodes for n-ary abstract syntax tree (AST).	*/ 
+function Node(key, description, child_nodes) {
 	this.key = key;
-	alert('base: ' + key + ', ' + (child_nodes === null));
-	this.children = (child_nodes === null) ? null : child_nodes;
-	alert('base: ' + key + ', ' + this.children);
-		
-	return Object.freeze(this);
-}
+	this.description = description;
+	this.children = ((child_nodes === null || child_nodes === 'undefined')) ? null : child_nodes;
+	
+	return this;
+};
+Node.prototype.get() = function(key) {
+	
+};
 Node.prototype.toString = function() {
 	return this.key;
 };
 
-/*	class TerminalNode: 	*/
-function TerminalNode(key, description, evaluator) {
-	//alert('leaf: ' + key.toString());
-	Node.call(this, key, null);
-	
-	this.desc = description;
-	this.evaluator = evaluator;
-	
-	return Object.freeze(this);
-}
-
-/*********************************** LEAF NODES *****************************************/
-/*	class CvarNode: 	*/
-function CvarNode(key, desc, evaluator, default_val) {
-	Node.call(this, key, desc, evaluator);
-	this.default_value = Object.freeze(default_val);
-	this.value = this.default_value;
+/*	@class TerminalNode: 	
+ *		TO DO.	*/
+function TerminalNode(key, description, args) {
+	Node.call(this, key, description, null);
+	this.args = args;
 	
 	return this;
-}
+};
+TerminalNode.prototype = Object.create(Node.prototype);
+TerminalNode.prototype.constructor = TerminalNode;
 
+/*********************************** LEAF NODES *****************************************/
 /*	class CommandNode: */
-function CommandNode(key, evaluator) {
-	TerminalNode.call(this, key, evaluator);
-	return Object.freeze(this);
+function CommandNode(key, description, args) {
+	TerminalNode.call(this, key, description, args);
 }
+CommandNode.prototype = Object.create(TerminalNode.prototype);
+CommandNode.prototype.constructor = CommandNode;
+
+/*	class CvarNode: 	*/
+function CvarNode(key, description, args, default_val) {
+	TerminalNode.call(this, key, description, args);
+	this.default_value = Object.freeze(default_val);
+	this.value = this.default_value;
+		
+	return this;
+};
+CvarNode.prototype = Object.create(TerminalNode.prototype);
+CvarNode.prototype.constructor = CvarNode;
+CvarNode.prototype.evaluate = function(text) {
+	var val = this.args[0](text);
+	
+	if (val !== null) {
+		this.value = val;	
+		return true;
+	}
+	
+	return false;
+};
+CvarNode.prototype.setValue = function(newVal) {
+	if (this.evaluate(newVal) === true) {
+		value = newVal;	
+	}
+};
+CvarNode.prototype.toString = function() {
+	return Object.getPrototypeOf(Node.prototype).toString.call(this) + ' ' + this.value;
+};
 
 /*	class OperatorNode: */
-function OperatorNode(key, evaluator) {
-	TerminalNode.call(this, key, evaluator);
-	return Object.freeze(this);
+function OperatorNode(key, description, args) {
+	TerminalNode.call(this, key, description, args);
 }
+OperatorNode.prototype = Object.create(TerminalNode.prototype);
+OperatorNode.prototype.constructor = OperatorNode;
+
 
 //Wrapper classes
 /*	@class AliasNode:
@@ -71,12 +97,13 @@ function AliasNode(key, node) {
 }
 
 /*	@class AxisNode:	 */
-function AxisNode(key, node) {
-	Node.call(this, key, null);
-	this.node = node;
+function AxisNode(keys, descriptions, default_values, values) {
+	MultipleNode.call(this, ['x', 'y'], keys, descriptions, default_values, values);
 	
-	return Object.freeze(this);
+	return this;
 }
+AxisNode.prototype = Object.create(MultipleNode.prototype);
+AxisNode.prototype.constructor = AxisNode;
 
 /*	class CompositeNode:	Shorthand for when root node prefix is also a command (e.g. in the case of 'user' */
 function CompositeNode(prefix, description, evaluator, children) {
@@ -89,24 +116,26 @@ function LineNode(node) {
 	
 }
 
-/*	class MaxMinPrefNode:	 */
-function MaxMinPrefNode(keys, descriptions, evaluators, default_values) {
-	if (true) { //to do
-		var arr = ['max', 'min', 'pref'];
-        
-        arr.forEach(function(x) {
-            return new Node()
-			keys.forEach(function(y) {
-                ret.push();
-            })
-		});
-        
-		return  arr;
-    }
+/*	@class MultipleNode: 	
+ *		Shorthand for nodes whose keys are identical save for their prefix.	
+ *	TO DO: description wildcards.	*/
+function MultipleNode(prefixes, keys, descriptions, args, default_values) {
+	this.prefixes = prefixes;
+	this.keys = keys;
+	this.descriptions = descriptions;
 	
-	return null;	
-}
+	return this;
+};
+MultipleNode.prototype = Object.create(CvarNode.prototype);
+MultipleNode.prototype.constructor = MultipleNode;
+MultipleNode.prototype.get() = function(key) {
+	
+};
 
+/*	class MaxMinPrefNode:	 */
+function MaxMinPrefNode(keys, descriptions, args, default_values) {
+	return MultipleNode(['max', 'min', 'pref'], keys, descriptions, args, default_values);
+}
 /*********************************** DATA TYPES *****************************************/
 /*	class Color:	 */
 function Color(r, g, b) {
@@ -168,9 +197,7 @@ function Interpreter() {
 						new CvarNode(new TerminalNode('hash_length',	'',																																	null)),				//gui_canvas_ruler_mark_length
 						new CvarNode(KEY_COLOR, 						'',																																	null),				//gui_canvas_ruler_mark_opacity
 						new CvarNode(KEY_THICKNESS, 					'',																																	null)]),			//gui_canvas_ruler_mark_thickness
-					new MaxMinPrefNode('spacing',						'',																																	null),									
-					
-					
+					new MaxMinPrefNode('spacing',						'',																																	null),
 					new AxisNode(new TerminalNode('axis_width'),		'',																																	null)])])]),
 		new CommandNode('help',											'',																																	null),
 		new CommandNode('import',										'',																																	null),				//import
@@ -202,13 +229,13 @@ function Interpreter() {
 			tokens = words[0].split('_'),
 			text_path = '';		//DEBUG ONLY
 
-			alert(words + '[' + tokens + '] ' + curr_node + ':' + curr_node.children);
+			//DEBUG alert(words + '[' + tokens + '] ' + curr_node + ':' + curr_node.children);
 			for (var i = 0; (i < tokens.length) && (curr_node.children !== null); i++) {
 				var ast_min = 0, 
 					ast_max = curr_node.children.length - 1,
 					ast_mid = parseInt(ast_max / 2),
 					comp_val;
-				alert('start ' + i + ': [' + ast_min + ', ' + ast_mid + ', ' + ast_max + ']');
+				//DEBUG alert('start ' + i + ': [' + ast_min + ', ' + ast_mid + ', ' + ast_max + ']');
 				while ((ast_min < ast_max) && ((comp_val = curr_node.children[ast_mid].key.localCompare(tokens[ast_mid])) !== 0)) {
 					if (comp_val > 0) {
 						ast_max = ast_mid - 1;

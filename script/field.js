@@ -1,9 +1,15 @@
-/*
-field.js
-@author 
-*/
-
-/* TO DO List:
+/*  ╔════════════════════════════════════════════════════════════════════════════════════════════════╗
+ *  ║ field.js                                                                                v 0.6.1║
+ *	║ Web client for designing markings for athletic fields and exporting as an SVG.                 ║
+ *  ║                                                                                                ║
+ *	║ Licensed under the GNU GPL v3.0 @ https://github.com/snealblim/field/blob/master/LICENSE       ║ 
+ *  ╠════════════════════════════════════════════════════════════════════════════════════════════════╣
+ *  ║                                   by Samuel 'teer' Neal-Blim                                   ║
+ *  ║                               site: http://www.prog.nealblim.com                               ║
+ *  ║                           git:  https://github.com/snealblim/field/                            ║
+ *  ╚════════════════════════════════════════════════════════════════════════════════════════════════╝
+/* 
+TO DO List:
 LAYOUT
 1.	establish min. screen size
 2.	establish min. field size -- put in form_submit()
@@ -14,21 +20,46 @@ FUNCTIONALITY 	(required):
 	a.	background
 	b.	tiling? blending?
 2.	Make scales < pref_hatch_spacing smaller fonts/small caps
-3.	Metric toggle switch (form submission)?
+3.	Metric toggle switch (form submission)
 4.	change cursor to crosshair 
 */
 
 /********************************** CLASSES *********************************/
+/*	@class Field: 
+ *  	A data object representing an athletic field.  A 'field' here is defined 
+ *	as a relatively flat* rectangular surface that can be modified.    */
+function Field(field_unit, unit_system, length, width, surface) {
+	this.field_unit = field_unit;
+	this.units = unit_system;
+	this.length = length;
+	this.width = width;
+	this.surface = surface;
+    
+	//Get the scale for each unit
+	this.unit_scales = new Uint32Array(this.units.length);
+	for (var i = 0, j = 1; i < this.units.length; i++) {
+		j *= this.units[i].factor;
+		this.unit_scales[i] = j;
+	}
+	
+	return this;
+}
+
 /*  @class Session: 
  *  	Contains information for the current client session, including duration, field and
- *  view.  A Session can be processed, resumed or transferred in a linearizable fashion.*/
- // TO DO:  interpreter hook
-function Session() {
-	this.start = Date.now();
-	
+ *  view. A Session can be processed, resumed or transferred in a linearizable fashion. */
+function Session() { 	// TO DO:  interpreter hook
+	var start = Date.now();
+
 	this.curr_field = null;
-	this.curr_view = -1;
 	this.views = null;
+	this.curr_view = -1;
+}
+
+/*  getCurrentView:
+ *		Returns the current view.	*/
+Session.prototype.getCurrentView = function() {
+	return this.views[this.curr_view];
 }
 
 /*	@class Unit: 
@@ -41,25 +72,6 @@ function Unit(name, pluralForm, abbrev, factor) {
 	this.factor = factor;
 	
 	return Object.freeze(this);
-}
-
-/*	@class Field: 
- *  	A data object representing an athletic field.  A 'field' here is defined 
- *	as a relatively flat* rectangular surface that can be modified.    */
-function Field(field_unit, units, length, width, surface) {
-	this.field_unit = field_unit;
-	this.units = units;
-	this.length = length;
-	this.width = width;
-	this.surface = surface;
-	
-	//Get the scale for each unit
-	this.unit_scales = new Uint32Array(this.units.length);
-	for (var i = 0, j = 1; i < this.units.length - 1; j *= this.units[i].factor) {
-		this.unit_scales[i++] = j;
-	}
-	
-	return this;
 }
 
 /*	@class View: 
@@ -75,26 +87,62 @@ function View(init_unit, x1, y1, x2, y2) {
 	
 	this.curr_unit = init_unit;
 	this.curr_scale = null;
+	this.curr_grid = null;
 	this.curr_ruler = null;
-	this.factors = Array.apply(null, Array(current_session.curr_field.units.length)).map(function () {});
-	this.scales = Array.apply(null, Array(current_session.curr_field.units.length)).map(function () {});
+	this.curr_label = null;
+	this.factors = Array.apply(null, Array(curr_sess.curr_field.units.length)).map(function () {});
+	this.scales = Array.apply(null, Array(curr_sess.curr_field.units.length)).map(function () {});
 	
 	//Initialize scales for initial unit
-	this.initialize_scale();
+	this.initializeScale();
 	
 	return this;
 }
+View.prototype.constructor = View;
 
-/*  initialize_scale: retrieves the ruler for a specific view, or calculates if it has 
- *      not been previously used.  */
-View.prototype.initialize_scale = function() {
+/*  changeScale:
+ *	TO DO
+ *	@param index */
+View.prototype.changeScale = function(index) {
+	if (this.curr_scale !== index) {
+		this.curr_scale = index;
+		this.initializeScale();
+		BIG_CANVAS_CTX.clearRect(0, 0, BIG_CANVAS_CTX.canvas.width, BIG_CANVAS_CTX.canvas.height);
+		canvas_drawRuler(this.curr_ruler, this.curr_unit, this.scales[this.curr_unit][0][this.curr_scale], this.factors[this.curr_unit], this.canvas_interval);
+	}
+}
+
+/*  changeUnit:
+ *	TO DO
+ *	@param index */
+View.prototype.changeUnit = function(index) {
+	if (this.curr_unit !== index) {
+		this.curr_unit = index;
+		this.initializeScale();
+		BIG_CANVAS_CTX.clearRect(0, 0, BIG_CANVAS_CTX.canvas.width, BIG_CANVAS_CTX.canvas.height);
+		canvas_drawRuler(this.curr_ruler, this.curr_unit, this.scales[this.curr_unit][0][this.curr_scale], this.factors[this.curr_unit], this.canvas_interval);
+	}
+}
+
+/*  getCurrentScale:
+ *		Returns the current scale.	*/
+View.prototype.getCurrentScale = function() {
+	this.scales[this.curr_unit][0][this.curr_scale]
+}
+
+/*  initializeScale:
+ *	Retrieves the ruler for a specific view, or calculates if it has not been previously utilized.  */
+View.prototype.initializeScale = function() {
 	if (this.scales[this.curr_unit] == null) {
 		this.scales[this.curr_unit] = canvas_getScales(this);
-		this.scales[this.curr_unit][1][this.curr_scale] = this.curr_ruler = canvas_getRuler(this);
+		this.scales[this.curr_unit][1][this.curr_scale] = this.curr_grid = this.curr_ruler = this.curr_label = canvas_getRuler(this);
 	} else if (this.scales[this.curr_unit][1][this.curr_scale] == null) {
 		this.scales[this.curr_unit][1][this.curr_scale] = this.curr_ruler = canvas_getRuler(this);
+	} else {
+		this.curr_ruler = this.scales[this.curr_unit][1][this.curr_scale];
 	}
 };
+
 
 /*********************************** CONSTANTS ******************************************/
 //Metric (SI) unit system
@@ -117,22 +165,25 @@ var BIG_CANVAS_CTX;
 var LIL_CANVAS_CTX;
 
 /********************************* USER SETTINGS ****************************************/
-var current_session;               //The session currently active
-var orientation;                   //Orientation, where -1/0/1 = portrait/square/landscape
-var lw_reversed;                   //Length/width may be swapped internally for simplicity
-var font_height;                   //Height corresponding to 1em
-var canvas_offset_dim = [0,0];     //Left, top offset of an element
-var canvas_unit_delta = [0,0];     //Change in units per pixel
-var menu_current_dropdown = null;  //Menu (if any) whose contents are currently displayed
-var draw_mode = null;              //Currently selected drawing tool
-var draw_color = "#FFFFFF";        //Currently selected color
-var draw_thickness = 1;            //Currently selected thickness
+var curr_sess;               		//The session currently active
+var orientation;					//Orientation, where -1/0/1 = portrait/square/landscape
+var lw_reversed;					//Length/width may be swapped internally for simplicity
+var font_height;					//Height corresponding to 1em
+var canvas_offset_dim = [0,0];		//Left, top offset of an element
+var canvas_delta = 0;				//Change in units per pixel
+var canvas_pixel_delta = [0,0,0];	//Change in units per pixel
+var menu_current_dropdown = null;	//Menu (if any) whose contents are currently displayed
+var draw_mode = null;				//Currently selected drawing tool
+var draw_color = "#FFFFFF";			//Currently selected color
+var draw_thickness = 1;				//Currently selected thickness
 
 //NOTE: The follow three (3) variables are a temporary measure; functionality will be 
-//      replaced by interp.js
+//      replaced by interp.js when it is ready.
 var DEFAULT_HASH_SPACING = 5;
 var TEMP_SURFACE_VAL = -1;
 var settings = {
+	canvas_grid_coord_enabled:			true,
+	canvas_grid_coord_prec:				2,
 	canvas_grid_line_color:				'#000000',
 	canvas_grid_line_enabled:			true,
 	canvas_grid_line_opacity:			0.05,
@@ -141,6 +192,10 @@ var settings = {
 	canvas_ruler_border_enabled:		true,
 	canvas_ruler_border_thickness:		2.0,
 	canvas_ruler_enabled:				true,
+	canvas_ruler_label_enabled:			true,
+	canvas_ruler_label_font_name:		'Courier New',
+	canvas_ruler_label_font_ratio:		0.008,
+	canvas_ruler_label_precision:		0,
 	canvas_ruler_hash_color:			'#000000',
 	canvas_ruler_hash_enabled: 			true,
 	canvas_ruler_hash_length_factor:	0.4,
@@ -149,15 +204,16 @@ var settings = {
 	canvas_ruler_max_hash_spacing:		10,
 	canvas_ruler_min_hash_spacing:		2,
 	canvas_ruler_pref_hash_spacing:		5,
-	canvas_ruler_x_axis_width:			50,	
-	canvas_ruler_y_axis_width:			50
+	canvas_ruler_x_axis_width:			60,	
+	canvas_ruler_y_axis_width:			60
 };
 
 /*****************************************************************************************
 *                                  Window functionality                                  *
 *****************************************************************************************/
-/*	window.onclick(): If clicked and e is NOT current menu, close element referred to by 
- * 		menu_current_dropdown.  */
+/*	window.onclick(): 
+ *		If clicked and e is NOT current menu, close element referred to by 
+ *	menu_current_dropdown.  */
 window.onclick = function(e) {
 	if (!e.target.matches('.dropdown-menu-button')) {
 		menu_current_dropdown.classList.add('hidden');
@@ -166,9 +222,9 @@ window.onclick = function(e) {
 };
 
 /*	window.onload():
- *  Initialize session. */
+ *  	Initialize session, load-time dependent constants. */
 window.onload = function() {
-	current_session = new Session();
+	curr_sess = new Session();
 	
 	BIG_CANVAS_CTX = Object.freeze(document.getElementById('big-canvas').getContext('2d'));
 	LIL_CANVAS_CTX = Object.freeze(document.getElementById('little-canvas').getContext('2d'));
@@ -190,7 +246,7 @@ window.onload = function() {
 };
 
 /*	window.onresize():	
- *  If window is resized, canvas must be redrawn.  (TO DO) */
+ *  	If window is resized, canvas must be redrawn.  (TO DO elaborate) */
 window.onresize = function(event) {
     unsupported_operation();
 	//canvas_resize();
@@ -199,8 +255,9 @@ window.onresize = function(event) {
 /*****************************************************************************************
 *                                   Form functionality                                   *
 *****************************************************************************************/
-/*	form_submit: Evaluate form input; display warning if input is unacceptable.	
- *  	If user-provided input is valid, initialize data and GUI elements/contents. */
+/*	form_submit: 
+ *		Evaluate form input; display warning if input is unacceptable.	
+ *  If user-provided input is valid, initialize data and GUI elements/contents. 	*/
 function form_submit() { 
 	var val,
 		field_dim = [0,0];
@@ -242,18 +299,20 @@ function form_submit() {
 				}
 			}
 			
-			current_session.curr_field = new Field(unit_index, unit_sys, field_dim[0], field_dim[1], TEMP_SURFACE_VAL);
-			field_to_string(current_session.curr_field);
+			curr_sess.curr_field = new Field(unit_index, unit_sys, field_dim[0], field_dim[1], TEMP_SURFACE_VAL);
+			print_field(curr_sess.curr_field);
 			
-			canvas_resize(current_session);
-			canvas_to_string(current_session.curr_field);
+			canvas_resize(curr_sess);
+			print_canvas(curr_sess.curr_field);
 			
-			var init_view = new View(unit_index, 0, 0, field_dim[0] * current_session.curr_field.unit_scales[unit_index], field_dim[1] * current_session.curr_field.unit_scales[unit_index]);
-			current_session.views = [init_view];
-			current_session.curr_view = 0;
+			var init_view = new View(unit_index, 0, 0, Math.floor(field_dim[0] * curr_sess.curr_field.unit_scales[unit_index]), 
+													   Math.floor(field_dim[1] * curr_sess.curr_field.unit_scales[unit_index]));
+			//print_view(init_view);
+			curr_sess.views = [init_view];
+			curr_sess.curr_view = 0;
 			
 			if (settings.canvas_ruler_enabled) {
-				canvas_drawRuler(init_view.curr_ruler, init_view.curr_unit, init_view.curr_scale, init_view.factors[init_view.curr_unit], init_view.canvas_interval);
+				canvas_drawRuler(init_view.curr_ruler, init_view.curr_unit, init_view.scales[init_view.curr_unit][0][init_view.curr_scale], init_view.factors[init_view.curr_unit], init_view.canvas_interval);
 			}
 		} else {
 			document.getElementById('form-warning').innerHTML = 'Invalid width value: must be a valid, nonnegative and nonzero number.';
@@ -268,12 +327,12 @@ function form_submit() {
 /*****************************************************************************************
 *                                  Canvas functionality                                  *
 *****************************************************************************************/
-/* 	canvas_resize:   resizes canvas to fit screen.  Called whenever either,
- * 		A) form submitted (initial input), or 
- * 		B) display resized.    
+/* 	canvas_resize:   
+ *		Resizes canvas to fit screen.  Called whenever:
+ * 	A) form submitted (initial input), or 
+ * 	B) display is resized.    
  * 	@param {Session} session, the session being implemented. */
- //TO DO:   parameter necessary, or just use current_session?
-function canvas_resize(session) {
+function canvas_resize(session) { 	//TO DO:   parameter necessary, or just use curr_sess?
 	var h, w, ratio, border_width;
 
 	//Get font height before we hide it
@@ -324,18 +383,21 @@ function canvas_resize(session) {
 	LIL_CANVAS_CTX.canvas.style.left = (border_width + settings.canvas_ruler_y_axis_width - 2) + 'px';
 	LIL_CANVAS_CTX.canvas.style.top = (border_width + 1) + 'px';
 
+	//Set font for ruler labels
+	BIG_CANVAS_CTX.font = Math.floor(settings.canvas_ruler_label_font_ratio * BIG_CANVAS_CTX.canvas.width) + 'px ' + settings.canvas_ruler_label_font_name;	
+
 	canvas_offset_dim = getTotalOffset(LIL_CANVAS_CTX.canvas);
 }
 
-/*	canvas_getScaleList: Get a list of appropriate scales to choose from and map it to the 
- *      view and unit provided.	
+/*	canvas_getScaleList: 
+ *		Get a list of appropriate scales to choose from and map it to the 
+ *  view and unit provided.
  *  @param {View} view, the current View for which the ruler is being calculated.
  *  @returns {scale list}, an array of key-value pairs.  
- *  	The key is a signed interger array (negative/positive depending on if key is less 
- *  	than/greater than or equal to 1:1), and the value is a pointer to the ruler for 
- *  	that scale.
- *  	Rulers are initially null; the first ruler chosen is the smallest (finest) one 
- *  	that can fit all of the unit intervals in the current View.  */
+ *  	Note: The key is a signed interger array (negative/positive depending on if key is less 
+ *  than/greater than or equal to 1:1), and the value is a pointer to the ruler for 
+ *  that scale.  Rulers are initially null; the first ruler chosen is the smallest (finest) one 
+ *  that can fit all of the unit intervals in the current View.  */
 function canvas_getScales(view) {
 	var intervals,
 		interval_size,
@@ -346,15 +408,15 @@ function canvas_getScales(view) {
 	
 	//Get the real-world interval size, and the interval size in pixels (on the shortest dimension)
 	if (orientation < 0) {
-		interval_size = (view.canvas_interval[1][0] - view.canvas_interval[0][0]) / 
-                         current_session.curr_field.unit_scales[view.curr_unit];
+		interval_size = Math.floor((view.canvas_interval[1][0] - view.canvas_interval[0][0]) / 
+                         			curr_sess.curr_field.unit_scales[view.curr_unit]);
 		max_ruler_intervals = Math.floor(LIL_CANVAS_CTX.canvas.width / 
-                              settings.canvas_ruler_pref_hash_spacing);
+                              			 settings.canvas_ruler_pref_hash_spacing);
 	} else {
-		interval_size = (view.canvas_interval[1][1] - view.canvas_interval[0][1]) / 
-                        current_session.curr_field.unit_scales[view.curr_unit];
+		interval_size = Math.floor((view.canvas_interval[1][1] - view.canvas_interval[0][1]) / 
+                        			curr_sess.curr_field.unit_scales[view.curr_unit]);
 		max_ruler_intervals = Math.floor(LIL_CANVAS_CTX.canvas.height / 
-                              settings.canvas_ruler_pref_hash_spacing);
+                              			 settings.canvas_ruler_pref_hash_spacing);
 	}
 	
 	alert(interval_size + ", " + max_ruler_intervals + "..." + LIL_CANVAS_CTX.canvas.height);
@@ -362,12 +424,12 @@ function canvas_getScales(view) {
 	if (interval_size > max_ruler_intervals) {	
 		//Break into factors of 100 or 1000?
 		if (Math.floor(interval_size / 100) <= max_ruler_intervals) {
-			if ((current_session.curr_field.units === METRIC_UNITS) || (view.curr_unit >= 2)) {
+			if ((curr_sess.curr_field.units === METRIC_UNITS) || (view.curr_unit >= 2)) {
 				//DEBUG alert('A');
 				intervals = getFactors(100);
 			} else {
 				//DEBUG alert('B');
-				intervals = getFactors(current_session.curr_field.units[view.curr_unit + 1].factor);
+				intervals = getFactors(curr_sess.curr_field.units[view.curr_unit + 1].factor);
 				factor *= 10;
 			}
 		} else {
@@ -376,43 +438,60 @@ function canvas_getScales(view) {
 			for (; Math.floor(interval_size / (10 * factor * intervals[0])) < max_ruler_intervals; factor *= 10);
 		}
 		
-		lessThanOne = true;
-	//More than enough room for multiple fractions of unit per ruler interval
-	} else {		
-		if ((interval_size * 2) > max_ruler_intervals) {	//Can't even add half-marks
-			//DEBUG alert('D');
-			intervals = (interval_size <= 1000) ? getFactors(100) : getFactors(1000);
-		} else {
-			//DEBUG alert('E');
-			intervals = (view.curr_unit > 0) ? getFactors(current_session.curr_field.units[view.curr_unit].factor * current_session.curr_field.units[view.curr_unit - 1].factor) :
-									   	       getFactors(current_session.curr_field.units[view.curr_unit].factor);
+		//Copy scales to array, save index of preferable 
+		for (var i = 0; i < intervals.length; i++) {
+			if (parseFloat(interval_size / (factor * intervals[i])) <= max_ruler_intervals) {		
+				ret = new Int16Array(intervals.length);
+				ret[0] = i;
+				break;
+			}
 		}
 		
-		lessThanOne = false;
-	}	
-	
-    //Copy scales to array
-	for (var i = 0; i < intervals.length; i++) {
-		if (parseFloat(interval_size / (factor * intervals[i])) <= max_ruler_intervals) {		
-			ret = new Int16Array(intervals.length);
-			ret[0] = i;
-			break;
+		lessThanOne = true;
+	//More than enough room for multiple fractions of unit per ruler interval
+	} else {
+		if (interval_size * 2 <= max_ruler_intervals) {	//Can at the very least add half marks
+			//DEBUG alert('D');
+			intervals = getFactors(curr_sess.curr_field.units[view.curr_unit > 0 ? view.curr_unit - 1 : view.curr_unit].factor);
+			
+			if ((intervals[intervals.length - 1] * 10) < max_ruler_intervals) {
+				for (; (interval_size * factor * intervals[0] * 10) < max_ruler_intervals; factor *= 10);	
+			}
+		} else {	//1:1
+			//DEBUG alert('E');
+			intervals = (view.curr_unit > 0) ? getFactors(curr_sess.curr_field.units[view.curr_unit].factor * curr_sess.curr_field.units[view.curr_unit - 1].factor) :
+											   getFactors(curr_sess.curr_field.units[view.curr_unit].factor);
 		}
+		
+		//Copy scales to array, save index of preferable scale
+		//DEBUG alert('intervals before: ' + intervals.toString()); 
+		for (var i = intervals.length - 1; i >= 0; i--) {
+			//DEBUG alert(factor + ', ' + intervals[i]);
+			if (parseFloat(interval_size * factor * intervals[i]) <= max_ruler_intervals) {
+				ret = new Int16Array(((i < intervals.length - 1) && ((interval_size * factor * intervals[i]) < Math.floor((max_ruler_intervals * settings.canvas_ruler_pref_hash_spacing) / settings.canvas_ruler_min_hash_spacing))) ? i + 1 : i);
+				ret[0] = i;
+				break;
+			}
+		}
+		//DEBUG alert('intervals after: ' + intervals.toString()); 
+		
+		lessThanOne = false;
 	}
 	
 	//Populate scales list
 	var selectedScale = ret[0],
 		selectBox = document.getElementById('select-canvas-scale');
 
-	selectBox.options.length = 0;					//Clear scales dropdown box
-	for (var i = 0; i < intervals.length; i++) {	//Now populate with current scales
+	selectBox.options.length = 0;			//Clear scales dropdown box
+	for (var i = 0; i < ret.length; i++) {	//Now populate with current scales
 		var opt = document.createElement('option');
 		opt.value = i;
-		opt.innerHTML = (lessThanOne) ? '1:' + intervals[i] : intervals[i] + ':1';
+		opt.innerHTML = (lessThanOne) ? intervals[i] + ':1' : '1:' + intervals[i];
 		selectBox.appendChild(opt);
 		
 		ret[i] = (lessThanOne) ? -1 * intervals[i] : intervals[i];
 	}
+	//DEBUG alert('ret: ' + ret.toString());
 	
 	//Add option for addition of user-specified custom scales
 	var opt = document.createElement('option');
@@ -425,18 +504,20 @@ function canvas_getScales(view) {
 	view.curr_scale = selectedScale;
 	view.factors[view.curr_unit] = factor;
 
-	return [ret, Array.apply(null, Array(current_session.curr_field.units.length)).map(function() {})];
+	return [ret, Array.apply(null, Array(curr_sess.curr_field.units.length)).map(function() {})];
 }
 
 /*	canvas_getRuler:	
- *  A 'ruler' is an unsigned integer array corresponding to the marks on a ruler, where 
+ *  	A 'ruler' is an unsigned integer array corresponding to the marks on a ruler, where 
  *  each successive interval (in increments of smallest units) represents a successively-
  *  longer/thicker hatch mark.
  *  E.g. 
- *      >10, 40, 200 would correspond to marks every 10, 40 and 200mm on a metric ruler.
- *      >192, 960, 1920 would correspond to marks every 1, 5, and 10 feet (192 being the 
- *       number of 1/16ths of an inch in each foot, and 960/1920 being multiples of 192).
- *  @param {View} view, the current View for which the ruler is being calculated.   */
+ *  >	10, 40, 200 would correspond to marks every 10, 40 and 200mm on a metric ruler.
+ *  >	192, 960, 1920 would correspond to marks every 1, 5, and 10 feet (192 being the 
+ *      number of 1/16ths of an inch in each foot, and 960/1920 being multiples of 192).
+ *  @param {View} view, the current View for which the ruler is being calculated.   
+ *	@returns {ruler} an unsigned 16-bit integer array of the respective intervals 
+ *		corresponding to the hash marks.	*/
 function canvas_getRuler(view) {
 	var intervals = [],
 		interval_size = (orientation < 0) ? (view.canvas_interval[1][0] - view.canvas_interval[0][0]) :
@@ -445,14 +526,14 @@ function canvas_getRuler(view) {
 	
 	//Scale is less than or equal to 1:1
 	if (scale < 0) {
-		var abs_scale = Math.abs(scale) * view.factors[view.curr_unit] * current_session.curr_field.unit_scales[view.curr_unit];
-		alert(abs_scale + ", " + view.curr_unit + ", " + view.curr_scale);
+		var abs_scale = Math.abs(scale) * view.factors[view.curr_unit] * curr_sess.curr_field.unit_scales[view.curr_unit];
+		//DEBUG alert(abs_scale + ", " + view.curr_unit + ", " + view.curr_scale);
 		//Can fit at least one ruler on interval
 		if (interval_size >= abs_scale) {
 			alert('W');
 			intervals.push(Math.abs(scale));
 			for (var i = view.curr_scale, j = view.curr_scale + 1; j < view.scales[view.curr_unit][0].length; j++) {
-				alert("[" + i + ", " + j + "] ... " + view.scales[view.curr_unit][0][i] + ", " + view.scales[view.curr_unit][0][j] + " ... " + intervals.toString());
+				//DEBUG alert("[" + i + ", " + j + "] ... " + view.scales[view.curr_unit][0][i] + ", " + view.scales[view.curr_unit][0][j] + " ... " + intervals.toString());
 				if ((view.scales[view.curr_unit][0][j] % view.scales[view.curr_unit][0][i]) == 0) {
 					intervals.push(Math.abs(view.scales[view.curr_unit][0][j]));
 					i = j;
@@ -464,30 +545,50 @@ function canvas_getRuler(view) {
 		}
 	} else {
 		if (interval_size >= scale) {
-			alert('Y ' + scale + ", " + view.curr_unit + ", " + view.curr_scale);
+			alert('Y');
 			intervals.push(scale);
 			
+			loop:
+			for (var i = view.scales[view.curr_unit][0].length - 2; i >= 1; i--) {
+				for (var j = intervals.length - 1; j >= 0; j--) {
+					if ((intervals[j] % view.scales[view.curr_unit][0][i]) !== 0) {
+						continue loop;
+					}
+				}
+				
+				intervals.push(view.scales[view.curr_unit][0][i]);
+			}
+			
+			intervals.push(1);
 		} else {
 			alert('Z');	
 		}
 	}
 	
-	alert("intervals: " + intervals);
+	//DEBUG alert("intervals: " + intervals);
 	return new Uint16Array(intervals);
 }
 
-/*	canvas_drawRuler: draws a given ruler for a given view/context.	*/
-function canvas_drawRuler(ruler, ruler_unit, ruler_scale, ruler_factor, ruler_interval) {
+/*	canvas_drawRuler: 
+ *		Draws a given ruler for a given view/context on the canvas.	
+ *	@param 
+ *	@param 
+ *	@param 
+ *	@param 
+ *	@param 
+ */
+function canvas_drawRuler(ruler, ruler_unit, scale, ruler_factor, ruler_interval) {
 	var x,
-		y, 
-		delta,
-		delta_pixels,
-		max_length;
+		y,
+		max_length,
+		label_font_size,
+		lessThanOne = ruler[0] < ruler[ruler.length - 1];
 
 	//Set the interval increment amount for both axis
-	delta = ruler_factor * current_session.curr_field.unit_scales[ruler_unit] * ruler[0];
-	alert(delta);
-
+	canvas_delta = lessThanOne ? curr_sess.curr_field.unit_scales[ruler_unit] * ruler_factor * ruler[0] :
+						 		 Math.floor(curr_sess.curr_field.unit_scales[ruler_unit] / (ruler_factor * ruler[0]));
+	//DEBUG alert('delta ' + canvas_delta + ', ' + curr_sess.curr_field.unit_scales[curr_sess.views[curr_sess.curr_view].curr_unit] + ', ' + ruler_factor + ', ' + ruler[ruler.length - 1]);
+	
 	if (settings.canvas_ruler_border_enabled) {
 		BIG_CANVAS_CTX.beginPath();
 		BIG_CANVAS_CTX.strokeStyle = settings.canvas_ruler_border_color;
@@ -501,33 +602,50 @@ function canvas_drawRuler(ruler, ruler_unit, ruler_scale, ruler_factor, ruler_in
 	if (settings.canvas_ruler_hash_enabled) {	
 		//Draw the hatch marks on the y-axis
 		x = settings.canvas_ruler_y_axis_width - 2;
-		y = BIG_CANVAS_CTX.canvas.height - settings.canvas_ruler_x_axis_width;
+		y = BIG_CANVAS_CTX.canvas.height - settings.canvas_ruler_x_axis_width + 1;
 		max_length = parseFloat(settings.canvas_ruler_y_axis_width * settings.canvas_ruler_hash_length_factor);
-		delta_pixels = parseFloat(LIL_CANVAS_CTX.canvas.height / ((ruler_interval[1][1] - ruler_interval[0][1]) / delta));
-		canvas_unit_delta[1] = delta_pixels / ruler[0];
+		canvas_pixel_delta[1] = parseFloat(LIL_CANVAS_CTX.canvas.height / ((ruler_interval[1][1] - ruler_interval[0][1]) / canvas_delta));
 		
-		for (var interval = ruler_interval[0][1]; interval < ruler_interval[1][1]; y -= delta_pixels, interval += delta) {
-			var y_inc = 0.5,
-				hash_length,
+		//Set ruler label font align (if applicable)
+		if (settings.canvas_ruler_label_enabled) {
+			BIG_CANVAS_CTX.textAlign = 'right';
+			BIG_CANVAS_CTX.textBaseline = 'middle';	
+		}
+		
+		for (var interval = ruler_interval[0][1]; interval < ruler_interval[1][1]; y -= canvas_pixel_delta[1], interval += canvas_delta) {
+			var grid_thickness = settings.canvas_grid_line_thickness,
+				grid_opacity = settings.canvas_grid_line_opacity,
 				hash_thickness = settings.canvas_ruler_hash_thickness,
-				grid_thickness = settings.canvas_grid_line_thickness,
-				grid_opacity = settings.canvas_grid_line_opacity;
-	
-			for (hash_length = 1; (hash_length < ruler.length) && ((parseFloat(interval / (ruler_factor * current_session.curr_field.unit_scales[ruler_unit])) % ruler[hash_length]) == 0); hash_length++);
-				
-			if ((delta_pixels >= settings.canvas_ruler_pref_hash_spacing) && (hash_length === ruler.length)) {
-				y_inc = 0;
+				hash_length,
+				y_offset = 0.5;
+		
+			if (lessThanOne) {
+				for (hash_length = 1; (hash_length < ruler.length) && ((interval % (ruler_factor * curr_sess.curr_field.unit_scales[ruler_unit] * ruler[hash_length])) == 0); hash_length++);
+			} else {
+				for (hash_length = 1; (hash_length < ruler.length) && ((interval % (curr_sess.curr_field.unit_scales[ruler_unit] / ruler[hash_length])) == 0); hash_length++);
+			}
+			
+			if ((Math.round(canvas_pixel_delta[1]) >= settings.canvas_ruler_pref_hash_spacing) && (hash_length == ruler.length)) {
+				y_offset = 0;
 				hash_thickness++;
 				grid_thickness++;
 				grid_opacity *= 2;
+				
+				if (settings.canvas_ruler_label_enabled) {
+					BIG_CANVAS_CTX.fillText((interval / curr_sess.curr_field.unit_scales[ruler_unit]).toFixed(settings.canvas_ruler_label_precision), parseFloat(x - max_length - parseFloat(max_length / 4)), Math.floor(y) + y_offset);
+				}
 			}
 			
 			if ((settings.canvas_grid_line_enabled) && (interval > ruler_interval[0][1])) {
+				if ((hash_thickness === 1) && (hash_length > 1)) {
+					grid_opacity *= 2;
+				}
+				
 				BIG_CANVAS_CTX.beginPath();
 				BIG_CANVAS_CTX.strokeStyle = toRGBA(settings.canvas_grid_line_color, grid_opacity);
 				BIG_CANVAS_CTX.lineWidth = grid_thickness;
-				BIG_CANVAS_CTX.moveTo(BIG_CANVAS_CTX.canvas.width, Math.floor(y) + y_inc);
-				BIG_CANVAS_CTX.lineTo(settings.canvas_ruler_y_axis_width - 1, Math.floor(y) + y_inc);
+				BIG_CANVAS_CTX.moveTo(BIG_CANVAS_CTX.canvas.width, Math.floor(y) + y_offset);
+				BIG_CANVAS_CTX.lineTo(settings.canvas_ruler_y_axis_width - 1, Math.floor(y) + y_offset);
 				BIG_CANVAS_CTX.stroke();
 				BIG_CANVAS_CTX.closePath();
 			}
@@ -536,8 +654,8 @@ function canvas_drawRuler(ruler, ruler_unit, ruler_scale, ruler_factor, ruler_in
 			BIG_CANVAS_CTX.beginPath();
 			BIG_CANVAS_CTX.strokeStyle = toRGBA(settings.canvas_ruler_hash_color, settings.canvas_ruler_hash_opacity);
 			BIG_CANVAS_CTX.lineWidth = hash_thickness;
-			BIG_CANVAS_CTX.moveTo(x, Math.floor(y) + y_inc);
-			BIG_CANVAS_CTX.lineTo(parseFloat(x - (max_length * hash_length)), Math.floor(y) + y_inc);
+			BIG_CANVAS_CTX.moveTo(x, Math.floor(y) + y_offset);
+			BIG_CANVAS_CTX.lineTo(parseFloat(x - (max_length * hash_length)), Math.floor(y) + y_offset);
 			BIG_CANVAS_CTX.stroke();
 			BIG_CANVAS_CTX.closePath();
 		}
@@ -546,31 +664,48 @@ function canvas_drawRuler(ruler, ruler_unit, ruler_scale, ruler_factor, ruler_in
 		x = settings.canvas_ruler_y_axis_width - 1;
 		y = BIG_CANVAS_CTX.canvas.height - settings.canvas_ruler_x_axis_width + 2;
 		max_length = parseFloat(settings.canvas_ruler_x_axis_width * settings.canvas_ruler_hash_length_factor);
-		delta_pixels = parseFloat(LIL_CANVAS_CTX.canvas.width / ((ruler_interval[1][0] - ruler_interval[0][0]) / delta));
-		canvas_unit_delta[0] = delta_pixels / ruler[0];
-	
-		for (var interval = ruler_interval[0][0]; interval < ruler_interval[1][0]; x += delta_pixels, interval += delta) {
-			var x_inc = 0.5,
-				hash_length,
-				hash_thickness = settings.canvas_ruler_hash_thickness,
-				grid_thickness = settings.canvas_grid_line_thickness,
-				grid_opacity = settings.canvas_grid_line_opacity;
+		canvas_pixel_delta[0] = parseFloat(LIL_CANVAS_CTX.canvas.width / ((ruler_interval[1][0] - ruler_interval[0][0]) / canvas_delta));
 		
-			for (hash_length = 1; (hash_length < ruler.length) && ((parseFloat(interval / (ruler_factor * current_session.curr_field.unit_scales[ruler_unit])) % ruler[hash_length]) == 0); hash_length++);
+		//Set ruler label font align (if applicable)
+		if (settings.canvas_ruler_label_enabled) {
+			BIG_CANVAS_CTX.textAlign = 'center';
+			BIG_CANVAS_CTX.textBaseline = 'bottom';	
+		}
+	
+		for (var interval = ruler_interval[0][0]; interval < ruler_interval[1][0]; x += canvas_pixel_delta[0], interval += canvas_delta) {
+			var grid_thickness = settings.canvas_grid_line_thickness,
+				grid_opacity = settings.canvas_grid_line_opacity,
+				hash_thickness = settings.canvas_ruler_hash_thickness,
+				hash_length,
+				x_offset = 0.5;
+		
+			if (lessThanOne) {
+				for (hash_length = 1; (hash_length < ruler.length) && ((interval % (ruler_factor * curr_sess.curr_field.unit_scales[ruler_unit] * ruler[hash_length])) == 0); hash_length++);
+			} else {
+				for (hash_length = 1; (hash_length < ruler.length) && ((interval % (curr_sess.curr_field.unit_scales[ruler_unit] / ruler[hash_length])) == 0); hash_length++);
+			}
 			
-			if ((delta_pixels >= settings.canvas_ruler_pref_hash_spacing) && (hash_length === ruler.length)) {
-				x_inc = 0;
+			if ((Math.round(canvas_pixel_delta[0]) >= settings.canvas_ruler_pref_hash_spacing) && (hash_length == ruler.length)) {
+				x_offset = 0;
 				hash_thickness++;
 				grid_thickness++;
 				grid_opacity *= 2;
+				
+				if (settings.canvas_ruler_label_enabled) {
+					BIG_CANVAS_CTX.fillText((interval / curr_sess.curr_field.unit_scales[ruler_unit]).toFixed(settings.canvas_ruler_label_precision), Math.floor(x) + x_offset, parseFloat(y + parseFloat(max_length * 1.5) + parseFloat(max_length / 4)));
+				}
 			}
 			
 			if ((settings.canvas_grid_line_enabled) && (interval > ruler_interval[0][0])) {
+				if ((hash_thickness === 1) && (hash_length > 1)) {
+					grid_opacity *= 2;
+				}
+				
 				BIG_CANVAS_CTX.beginPath();
 				BIG_CANVAS_CTX.strokeStyle = toRGBA(settings.canvas_grid_line_color, grid_opacity);
-				BIG_CANVAS_CTX.lineWidth = hash_thickness;
-				BIG_CANVAS_CTX.moveTo(Math.floor(x) + x_inc, 0);
-				BIG_CANVAS_CTX.lineTo(Math.floor(x) + x_inc, BIG_CANVAS_CTX.canvas.height - settings.canvas_ruler_x_axis_width);
+				BIG_CANVAS_CTX.lineWidth = grid_thickness;
+				BIG_CANVAS_CTX.moveTo(Math.floor(x) + x_offset, 0);
+				BIG_CANVAS_CTX.lineTo(Math.floor(x) + x_offset, BIG_CANVAS_CTX.canvas.height - settings.canvas_ruler_x_axis_width);
 				BIG_CANVAS_CTX.stroke();
 				BIG_CANVAS_CTX.closePath();
 			}
@@ -579,57 +714,67 @@ function canvas_drawRuler(ruler, ruler_unit, ruler_scale, ruler_factor, ruler_in
 			BIG_CANVAS_CTX.beginPath();
 			BIG_CANVAS_CTX.strokeStyle = toRGBA(settings.canvas_ruler_hash_color, settings.canvas_ruler_hash_opacity);
 			BIG_CANVAS_CTX.lineWidth = hash_thickness;
-			BIG_CANVAS_CTX.moveTo(Math.floor(x) + x_inc, y);
-			BIG_CANVAS_CTX.lineTo(Math.floor(x) + x_inc, parseFloat(y + (max_length * hash_length)));
-			BIG_CANVAS_CTX.stroke();
+			BIG_CANVAS_CTX.moveTo(Math.floor(x) + x_offset, y);
+			BIG_CANVAS_CTX.lineTo(Math.floor(x) + x_offset, parseFloat(y + (max_length * hash_length)));
+			BIG_CANVAS_CTX.stroke();			
 			BIG_CANVAS_CTX.closePath();
-		}
+		}			
+	}
+	
+	//Set info for coordinate display on canvas mouseOver
+	if (canvas_pixel_delta[0] > scale) {
+		canvas_pixel_delta[0] = Math.abs(canvas_pixel_delta[0] / scale);
+		canvas_pixel_delta[1] = Math.abs(canvas_pixel_delta[1] / scale);
+		canvas_pixel_delta[2] = -1;
+	} else {
+		canvas_pixel_delta[0] = canvas_pixel_delta[0] * scale;
+		canvas_pixel_delta[1] = canvas_pixel_delta[1] * scale;
+		canvas_pixel_delta[2] = 25;
 	}
 }
 
-/*	canvas_zoomIn(): TO DO 	*/
+/*	canvas_zoomIn:
+ *		TO DO 	*/
 function canvas_pan() {
 	
 }
 
-/*	canvas_zoomIn(): TO DO 	*/
+/*	canvas_zoomIn:
+ *		TO DO 	*/
 function canvas_zoomIn() {
 	
 }
 
-/*	canvas_zoomOut(): TO DO 	*/
+/*	canvas_zoomOut:
+ *		TO DO 	*/
 function canvas_zoomOut() {
 	
 }
 
-/*	canvas_changeUnits(): TO DO 	*/
+/*	canvas_changeUnits: 
+ *		Change the units being displayed.
+ *	Called when 'select-canvas-units' onChange() even is fired.	*/
 function canvas_changeUnits() {
-	var view = current_session.views[current_session.curr_view];
-	view.curr_unit = document.getElementById('select-canvas-units').selectedIndex;
-	view.initialize_scale();
-	
-	BIG_CANVAS_CTX.clearRect(0, 0, BIG_CANVAS_CTX.canvas.width, BIG_CANVAS_CTX.canvas.height);
-	canvas_drawRuler(view);
+	var view = curr_sess.views[curr_sess.curr_view];
+	view.changeUnit(document.getElementById('select-canvas-units').selectedIndex);
 	LIL_CANVAS_CTX.canvas.focus();
 }
 
-/*	canvas_changeScaleType(): TO DO 	*/
+/*	canvas_changeScaleType:
+ *		Changes whether the ruler/grid scale is being displayed and can be changed.
+ *	Called when 'select-canvas-scale-type' onChange() even is fired.	*/
 function canvas_changeScaleType() {
 	
 }
 
-/*	canvas_changeUnits(): TO DO 	*/
+/*	canvas_changeScale: 
+ *		TO DO 	*/
 function canvas_changeScale() {
-	var view = current_session.views[current_session.curr_view];
+	var view = curr_sess.views[curr_sess.curr_view];
 	
 	if (document.getElementById('select-canvas-scale').selectedIndex < document.getElementById('select-canvas-scale').options.length - 1) {
-		view.curr_scale = document.getElementById('select-canvas-scale').selectedIndex;
-		
-		if (view.scales[view.curr_unit][1][view.curr_scale] == null) {
-			view.scales[view.curr_unit][1][view.curr_scale] = canvas_getRuler(view);
-		}
-		view.curr_ruler = view.scales[view.curr_unit][1][view.curr_scale];
-		//alert("current ruler: " + view.curr_ruler);
+		//DEBUG alert("current scale: " + view.curr_scale + " ... " + document.getElementById('select-canvas-scale').selectedIndex);
+		view.changeScale(document.getElementById('select-canvas-scale').selectedIndex);
 	} else {
 		var prompt_text = ["Please enter a scale separated by a colon (e.g. '1:4 or 2:3')", ""],
 			val,
@@ -658,19 +803,23 @@ function canvas_changeScale() {
 			}
 						
 		} while (input !== null);
-		
-		//alert(val.toString());
 	}
-	
-	BIG_CANVAS_CTX.clearRect(0, 0, BIG_CANVAS_CTX.canvas.width, BIG_CANVAS_CTX.canvas.height);
-	canvas_drawRuler(view.curr_ruler, view.curr_unit, view.curr_scale, view.factors[view.curr_unit], view.canvas_interval);
 }
 
-/*	Canvas mouse events		*/
-/*	canvas_mouseMove(): TO DO 	*/
+/***** Canvas mouse events *****/
+/*	canvas_mouseMove: 
+ *		TO DO 	*/
 function canvas_mouseMove(e) {
-	var x = Math.floor((e.clientX - canvas_offset_dim[0]) / canvas_unit_delta[0]);
-	var y = Math.floor((LIL_CANVAS_CTX.canvas.height - (e.clientY - canvas_offset_dim[1]) - 1) / canvas_unit_delta[1]);
+	var x = (e.clientX - canvas_offset_dim[0]) / canvas_pixel_delta[0];
+	var y = (LIL_CANVAS_CTX.canvas.height - (e.clientY - canvas_offset_dim[1]) - 1) / canvas_pixel_delta[1];
+	
+	if (canvas_pixel_delta[2] > 0) {
+		x = (Math.floor(x) + Math.floor((x - Math.floor(x)) * canvas_pixel_delta[2]) / canvas_pixel_delta[2]).toFixed(settings.canvas_grid_coord_prec);
+		y = (Math.floor(y) + Math.floor((y - Math.floor(y)) * canvas_pixel_delta[2]) / canvas_pixel_delta[2]).toFixed(settings.canvas_grid_coord_prec);
+	} else {
+		x = Math.floor(x);
+		y = Math.floor(y);
+	}
 	
 	document.getElementById('display-coords').innerHTML = x + ', ' + y;
 }
@@ -680,7 +829,7 @@ function canvas_mouseOut() {
 	document.getElementById('display-coords').innerHTML = '';
 }
 /***************************************************************************************************************
-*												Menu buttons
+*												Menu buttons												   *
 ***************************************************************************************************************/
 /***** File *****/
 function menu_file_dropdown() {
@@ -772,7 +921,8 @@ function submenu_help_about() {
 	unsupported_operation();
 }
 
-/*	toggle_dropdown():	TO DO	*/
+/*	toggle_dropdown:
+ *		Shows/hides the submenu if it is hidden/shown (resp).	*/
 function toggle_dropdown(menu_button, submenu) {
 	if (submenu.classList.contains('hidden')) {
 		submenu.style.left = menu_button.offsetLeft + "px";
@@ -784,42 +934,50 @@ function toggle_dropdown(menu_button, submenu) {
 }
 
 /*	Top icon menu*/
-/*	menu_draw_line():	TO DO	*/
+/*	menu_draw_line:	
+ *		TO DO	*/
 function menu_draw_line() {
 	unsupported_operation();
 }
 
-/*	menu_draw_arc():	TO DO	*/
+/*	menu_draw_arc:
+ *		TO DO	*/
 function menu_draw_arc() {
 	unsupported_operation();
 }
 
-/*	menu_draw_rect():	TO DO	*/
+/*	menu_draw_rect:
+ *		TO DO	*/
 function menu_draw_rect() {
 	unsupported_operation();
 }
 
-/*	menu_draw_circle():	TO DO	*/
+/*	menu_draw_circle:
+ *		TO DO	*/
 function menu_draw_circle() {
 	unsupported_operation();
 }
 
-/*	menu_draw_poly_line():	TO DO	*/
+/*	menu_draw_poly_line:
+ *		TO DO	*/
 function menu_draw_poly_line() {
 	unsupported_operation();
 }
 
-/*	menu_pick_thickness():	TO DO	*/
+/*	menu_pick_thickness:
+ *		TO DO	*/
 function menu_pick_thickness() {
 	unsupported_operation();
 }
 
-/*	menu_pick_color():	TO DO	*/
+/*	menu_pick_color:	
+ *		TO DO	*/
 function menu_pick_color() {
 	unsupported_operation();
 }
 
-/*	toggleConsole():	TO DO	*/
+/*	toggleConsole:	
+ *		TO DO	*/
 function toggleConsole() {
 	document.getElementById('text-console').classList.contains('hidden') ? document.getElementById("text-console").classList.remove('hidden') : 
 																		   document.getElementById("text-console").classList.add('hidden');
@@ -827,8 +985,8 @@ function toggleConsole() {
 /***************************************************************************************************************
 *											Utility functions
 ***************************************************************************************************************/
-/* 	getFactors(): calculates all positive integer factors of a number n between one and n 
- *  (inclusive).
+/* 	getFactors: 
+		Calculates all positive integer factors of a number n between one and n (inclusive).
  *  @param {number} num, a positive integer. 	
  *  @param {number} starting_val (optional), a positive integer between 1 and num.  If no
  *  	second parameter is provided, then the starting value is presumed to be 1.
@@ -861,7 +1019,8 @@ function getFactors(num, starting_val) {
   	return factors;
 }
 
-/*  getTotalOffset(): determines the total left and top offset of an element by adding the
+/*  getTotalOffset: 
+ *		Determines the total left and top offset of an element by adding the
  *  offset of successive parent containers until the root parent container is reached.
  *  @param {element} elem, the
  *  @returns {array} a length-2 array of positive integers corresponding to the total 
@@ -880,17 +1039,41 @@ function getTotalOffset(elem) {
 	return [b, c];
 }
 
-/*	toRGBA():   converts a long-typed color value to its RGBA equivalent.
+/*  merge: 
+ *		Merge the second integer array into the first, while maintaining their sorted order.	
+ *	@param {array} arr1, the array receiving elements.
+ *	@param {array} arr2, the array being merged.
+ */
+function merge(arr1, arr2) {
+	//Ensure that both array parameters are non-null and non-empty
+	if ((arr1 != null) && (arr1.length > 0) && (arr2 != null) && (arr2.length > 0)) {
+		for (var i = 0; i < arr1.length; i++) {
+			for (var j = 0; j < arr2.length; j++) {
+				if (arr2[j] > arr1[i]) {
+					arr1[i].splice(i + 1, 0, arr2[j++]);
+				}
+			}
+		}
+	}
+}
+
+/*	toRGBA:
+ *		Converts a long-typed color value to its RGBA equivalent.
  *  @param {number} color, a valid color between #000000 and #FFFFFF.
  *  @param {number} alpha, a valid positive float value between 0.0 and 1.0.
  *  @returns {string} a string with the parameterized values in rgba(r,g,b,a) form, (such 
- *  that can be understood in the context of changes to an element's style).   */
+ *  	that can be understood in the context of changes to an element's style).   */
 function toRGBA(color, alpha) {
 	var r = (color >> 16) & 255,
 		g = (color >> 8) & 255,
 		b = color & 255;
 	return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
 }
+
+
+
+
+
 
 /*****************************************************************************************
 *                                      DEBUG                                             *
@@ -902,14 +1085,74 @@ function unsupported_operation() {
           "\n\nThank you for your help!");
 }
 
-function field_to_string(field) {
+function print_field(field) {
 	alert("field: " + field.field_unit + ", [" + field.width + ", " + field.length + "]");
 }
 
-function canvas_to_string(field) {
+function print_canvas(field) {
 	alert("canvas: " + LIL_CANVAS_CTX.canvas.width + ", " + LIL_CANVAS_CTX.canvas.height + ", [" + field.width + ", " + field.length + "]");
 }
 
-function view_to_string(view) {
-	alert("canvas interval: [(" + view.canvas_interval[0,0] + ", " + view.canvas_interval[0,1] + "), (" + view.canvas_interval[1,0] + ", " + view.canvas_interval[1,1] + ")], scale: " + view.unit_scale);
+function print_view(view) {
+	alert('view: [(' + view.canvas_interval[0,0] + ', ' + view.canvas_interval[0,1] + '), (' + view.canvas_interval[1,0] + ', ' + view.canvas_interval[1,1] + ')]\n' + 
+		  '      unit: ' + curr_sess.curr_field.units[view.curr_unit].name + ', scale: ' + view.curr_scale + ', ruler: ' + view.curr_ruler.toString() + '\n' +
+		  scale_list_to_string(view.scales));
+}
+
+function scale_list_to_string(scale_list) {
+	var ret;
+
+	if (scale_list == null) {
+		ret = 'null';
+	} else {
+		ret = '';
+		
+		for (var i = 0; i < scale_list.length; i++) {
+			var spacing = 8 + curr_sess.curr_field.units[i].name.length;
+			//alert('@ ' + scale_to_string(scale_list[i], spacing) + ', ' + spacing);
+			
+			ret += i + '. ' + curr_sess.curr_field.units[i].name + ': ' + scale_to_string(scale_list[i], spacing) + '';
+			//alert('A: ' + i + ', {' + ret + '}');
+			
+			if (i < (scale_list.length - 1)) {
+				ret += '\n';
+			}
+		}
+	}
+	
+	return ret;
+}
+
+function scale_to_string(scale, whitespace_len) {
+	var ret;
+	
+	if (scale == null) {
+		ret = 'null';
+	} else {
+		ret = '';
+		var temp = (whitespace_len == null) ? '' : ' '.repeat(whitespace_len);
+		
+		//alert('!' + scale[0].length);
+		for (var i = 0; i < scale[0].length; i++) {
+			//alert('!: ' + i + ', {' + ret + '}');
+			ret += (i < 1) ? '' : temp;
+			ret += (scale[0][i] < 0) ?  Math.abs(scale[0][i]) + ':1 [' :
+									   '1:' + scale[0][i] + ' [';
+			//alert('!!: ' + i + ', ' + temp);
+			if (scale[1][i] != null) {
+				//alert('!!' + scale[1][i].toString());	
+			} else {
+				//alert('?');	
+			}
+			ret += (scale[1][i] == null) ? 'null]' : scale[1][i].toString() + ']';
+			
+			if (i < (scale[0].length - 1)) {
+				ret += '\n';
+			}
+			//alert('--\n' + ret);
+		}
+	}
+	
+	//alert('B: ' + ret);
+	return ret;
 }

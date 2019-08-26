@@ -132,7 +132,7 @@ html, body {
 	vertical-align: central;	
 }
 
-#text-console, #south-box input, #display-coords, #select-canvas-scale {
+#text-console, #south-box input, #display-coords, #select-canvas-scale, #big-canvas {
 	font-family: monospace;	
 }
 
