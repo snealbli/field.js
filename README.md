@@ -1,2 +1,3 @@
-# field
+# field.js
 Web client for designing the markings on an athletic field.
+More to come...
