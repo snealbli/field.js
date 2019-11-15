@@ -1,8 +1,8 @@
 /*  ╔════════════════════════════════════════════════════════════════════════════════════════════════╗
- *  ║ field.js                                                                                v 0.6.1║
- *	║ Web client for designing markings for athletic fields and exporting as an SVG.                 ║
+ *  ║ field.js                                                                               v 0.6.1 ║
+ *  ║ Web client for designing markings for athletic fields and exporting as an SVG.                 ║
  *  ║                                                                                                ║
- *	║ Licensed under the GNU GPL v3.0 @ https://github.com/snealblim/field/blob/master/LICENSE       ║ 
+ *  ║ Licensed under the GNU GPL v3.0 @ https://github.com/snealblim/field/blob/master/LICENSE       ║ 
  *  ╠════════════════════════════════════════════════════════════════════════════════════════════════╣
  *  ║                                   by Samuel 'teer' Neal-Blim                                   ║
  *  ║                               site: http://www.prog.nealblim.com                               ║
@@ -57,24 +57,24 @@ function Session() { 	// TO DO:  interpreter hook
 }
 
 /*  getCurrentView:
- *		Returns the current view.	*/
+ *  	Returns the current view.	*/
 Session.prototype.getCurrentView = function() {
 	return this.views[this.curr_view];
 }
 
-/*	@class Unit: 
+/* @class Unit: 
  *  	A class containing all of the information neccessary to work with real-
  *	world distance units.   */
 function Unit(name, pluralForm, abbrev, factor) {
     this.name = name;
 	this.plural = (pluralForm == null) ? this.name + "s" : pluralForm;
-    this.abbrev = abbrev;
+	this.abbrev = abbrev;
 	this.factor = factor;
 	
 	return Object.freeze(this);
 }
 
-/*	@class View: 
+/* @class View: 
  *  	A rectangular view of the current field at a specific size, coordinate and 
  *  zoom.  In addition a view contains a list of scales and rulers for each scale, which 
  *  will be calculated as needed by the user.
@@ -125,7 +125,7 @@ View.prototype.changeUnit = function(index) {
 }
 
 /*  getCurrentScale:
- *		Returns the current scale.	*/
+ *	Returns the current scale.	*/
 View.prototype.getCurrentScale = function() {
 	this.scales[this.curr_unit][0][this.curr_scale]
 }
@@ -389,8 +389,8 @@ function canvas_resize(session) { 	//TO DO:   parameter necessary, or just use c
 	canvas_offset_dim = getTotalOffset(LIL_CANVAS_CTX.canvas);
 }
 
-/*	canvas_getScaleList: 
- *		Get a list of appropriate scales to choose from and map it to the 
+/* canvas_getScaleList: 
+ *  	Get a list of appropriate scales to choose from and map it to the 
  *  view and unit provided.
  *  @param {View} view, the current View for which the ruler is being calculated.
  *  @returns {scale list}, an array of key-value pairs.  
@@ -516,8 +516,8 @@ function canvas_getScales(view) {
  *  >	192, 960, 1920 would correspond to marks every 1, 5, and 10 feet (192 being the 
  *      number of 1/16ths of an inch in each foot, and 960/1920 being multiples of 192).
  *  @param {View} view, the current View for which the ruler is being calculated.   
- *	@returns {ruler} an unsigned 16-bit integer array of the respective intervals 
- *		corresponding to the hash marks.	*/
+ *  @returns {ruler} an unsigned 16-bit integer array of the respective intervals 
+ *      corresponding to the hash marks.	*/
 function canvas_getRuler(view) {
 	var intervals = [],
 		interval_size = (orientation < 0) ? (view.canvas_interval[1][0] - view.canvas_interval[0][0]) :
@@ -761,14 +761,14 @@ function canvas_changeUnits() {
 }
 
 /*	canvas_changeScaleType:
- *		Changes whether the ruler/grid scale is being displayed and can be changed.
- *	Called when 'select-canvas-scale-type' onChange() even is fired.	*/
+ *  	Changes whether the ruler/grid scale is being displayed and can be changed.
+ * Called when 'select-canvas-scale-type' onChange() even is fired.	*/
 function canvas_changeScaleType() {
 	
 }
 
 /*	canvas_changeScale: 
- *		TO DO 	*/
+ *  	TO DO 	*/
 function canvas_changeScale() {
 	var view = curr_sess.views[curr_sess.curr_view];
 	
