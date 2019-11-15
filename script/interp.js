@@ -1,11 +1,14 @@
 /*  ╔════════════════════════════════════════════════════════════════════════════════════════════════╗
- *  ║                         by Sam 'teer' Neal                                                     ║
- *  ║                      http://www.prog.nealblim.com                                              ║
- *  ║                                github                                                          ║
- *  ╠════════════════════════════════════════════════════════════════════════════════════════════════╣
+ *  ║ interp.js                                                                              v 0.6.1 ║
+ *  ║ Developer console for added field.js functionality and customization.                          ║
  *  ║                                                                                                ║
+ *  ║ Licensed under the GNU GPL v3.0 @ https://github.com/snealblim/field/blob/master/LICENSE       ║ 
+ *  ╠════════════════════════════════════════════════════════════════════════════════════════════════╣
+ *  ║                                   by Samuel 'teer' Neal-Blim                                   ║
+ *  ║                               site: http://www.prog.nealblim.com                               ║
+ *  ║                           git:  https://github.com/snealblim/field/                            ║
  *  ╚════════════════════════════════════════════════════════════════════════════════════════════════╝
-
+/* 
 
 There are three types of symbols:
 -   cvars
