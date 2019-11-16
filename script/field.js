@@ -6,7 +6,7 @@
  *  ╠════════════════════════════════════════════════════════════════════════════════════════════════╣
  *  ║                                   by Samuel 'teer' Neal-Blim                                   ║
  *  ║                               site: http://www.prog.nealblim.com                               ║
- *  ║                           git:  https://github.com/snealblim/field.js/                         ║
+ *  ║                           git:  https://github.com/snealbli/field.js/                         ║
  *  ╚════════════════════════════════════════════════════════════════════════════════════════════════╝
 /* 
 TO DO List:
