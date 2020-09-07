@@ -1,2 +1,2 @@
 # field.js
-Still in alpha.  HTML is invalid
+Still in alpha.  HTML currently being refactored to when I have time.
